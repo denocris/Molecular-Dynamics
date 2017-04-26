@@ -9,11 +9,9 @@ cd P2.10_seed/
 rm -f timing.dat
 rm -f timing_plot.dat
 
-for numprocs in 1 2 4 8 16 20
+for numprocs in 1 2 4 8 16 20;
 do
-
     /usr/bin/time -p mpirun -np $numprocs src/simplemd.x in >> timing.dat
-
 done
 
 cat timing.dat | grep real | awk '{print $2}' > timing_plot.dat
