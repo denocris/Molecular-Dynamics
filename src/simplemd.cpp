@@ -23,21 +23,21 @@ double gset;
 bool write_positions_first;
 bool write_statistics_first;
 int write_statistics_last_time_reopened;
-FILE* write_statistics_fp
+FILE* write_statistics_fp;
 MPI_Comm MyComm;
 
 public:
-SimpleMD(MPI_Comm comm){
-  for(int i=0;i<32;i++) iv[i]=0.0;
-  iy=0;
-  iset=0;
-  gset=0.0;
-  write_positions_first=true;
-  write_statistics_first=true;
-  write_statistics_last_time_reopened=0;
-  write_statistics_fp=NULL;
-  MyComm = comm;
-}
+  SimpleMD(MPI_Comm comm){
+    for(int i=0;i<32;i++) iv[i]=0.0;
+    iy=0;
+    iset=0;
+    gset=0.0;
+    write_positions_first=true;
+    write_statistics_first=true;
+    write_statistics_last_time_reopened=0;
+    write_statistics_fp=NULL;
+    MyComm = comm;
+  }
 
 private:
 
@@ -111,14 +111,14 @@ read_input(FILE*   fp,
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nconfig,buffer1);
       trajfile=buffer1;
-      if(MyID > 0)
+      if(rank > 0)
         trajfile = "/dev/null";
     }
     else if(keyword=="nstat")
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nstat,buffer1);
       statfile=buffer1;
-      if(MyID > 0)
+      if(rank > 0)
         trajfile = "/dev/null";
     }
     else if(keyword=="wrapatoms")
@@ -471,7 +471,7 @@ int main(FILE*in,FILE*out){
 // number of atoms is read from file inputfile
   read_natoms(inputfile,natoms);
 
-  if(MyID == 0){
+  if(rank == 0){
 // write the parameters in output so they can be checked
     fprintf(stdout,"%s %s\n","Starting configuration           :",inputfile.c_str());
     fprintf(stdout,"%s %s\n","Final configuration              :",outputfile.c_str());
@@ -519,7 +519,7 @@ int main(FILE*in,FILE*out){
   int list_size=0;
   for(int i=0;i<list.size();i++) list_size+=list[i].size();
 
-  if(MyID == 0)
+  if(rank == 0)
     fprintf(stdout,"List size: %d\n",list_size);
 
   for(int iatom=0;iatom<natoms;++iatom)
@@ -555,13 +555,13 @@ int main(FILE*in,FILE*out){
       compute_list(natoms,positions,cell,listcutoff,list);
       for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
 
-      if(MyID == 0)
+      if(rank == 0)
       fprintf(stdout,"Neighbour list recomputed at step %d\n",istep);
 
       int list_size=0;
       for(int i=0;i<list.size();i++) list_size+=list[i].size();
 
-      if(MyID == 0)
+      if(rank == 0)
       fprintf(stdout,"List size: %d\n",list_size);
     }
 
