@@ -5,6 +5,9 @@
 #include <cmath>
 #include <vector>
 #include <cstdlib>
+#include <cstring>
+
+#include "mpi.h"
 
 using namespace std;
 using namespace PLMD;
@@ -20,10 +23,11 @@ double gset;
 bool write_positions_first;
 bool write_statistics_first;
 int write_statistics_last_time_reopened;
-FILE* write_statistics_fp;
+FILE* write_statistics_fp
+MPI_Comm MyComm;
 
 public:
-SimpleMD(){
+SimpleMD(MPI_Comm comm){
   for(int i=0;i<32;i++) iv[i]=0.0;
   iy=0;
   iset=0;
@@ -32,11 +36,12 @@ SimpleMD(){
   write_statistics_first=true;
   write_statistics_last_time_reopened=0;
   write_statistics_fp=NULL;
+  MyComm = comm;
 }
 
 private:
 
-void 
+void
 read_input(FILE*   fp,
            double& temperature,
            double& tstep,
@@ -72,6 +77,9 @@ read_input(FILE*   fp,
 
   string line;
 
+  int rank;
+  MPI_Comm_rank( this->MyComm, &rank);
+
   line.resize(256);
   char buffer[256];
   char buffer1[256];
@@ -103,11 +111,15 @@ read_input(FILE*   fp,
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nconfig,buffer1);
       trajfile=buffer1;
+      if(MyID > 0)
+        trajfile = "/dev/null";
     }
     else if(keyword=="nstat")
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nstat,buffer1);
       statfile=buffer1;
+      if(MyID > 0)
+        trajfile = "/dev/null";
     }
     else if(keyword=="wrapatoms")
     {
@@ -204,28 +216,60 @@ void check_list(const int natoms,const vector<Vector>& positions,const vector<Ve
   }
 }
 
-
+// pass a structure always by reference & (good practice)
 void compute_list(const int natoms,const vector<Vector>& positions,const double cell[3],const double listcutoff,
                   vector<vector<int> >& list){
   Vector distance;     // distance of the two atoms
   Vector distance_pbc; // minimum-image distance of the two atoms
   double listcutoff2;  // squared list cutoff
+/*
+  int rank; // id of the processor
+  int size; // number of processors
+
+  int start, end;
+
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);*/
+
   listcutoff2=listcutoff*listcutoff;
   list.assign(natoms,vector<int>());
+
   for(int iatom=0;iatom<natoms-1;iatom++){
+/*
+    int jlist_partial = (natoms - (iatom + 1)) / size;
+    int rest = (natoms - (iatom + 1)) % size;
+    int offset = 0;
+
+    if(rest != 0 and rank < rest)
+      jlist_partial++;
+    else
+      offset = rest;
+
+    int start = jlist_partial * rank + offset + (iatom + 1);
+    int end = start + jlist_partial;
+*/
+
+    //for(int jatom=start; jatom<end;jatom++){
     for(int jatom=iatom+1;jatom<natoms;jatom++){
-      for(int k=0;k<3;k++) distance[k]=positions[iatom][k]-positions[jatom][k];
+      for(int k=0;k<3;k++)
+        distance[k]=positions[iatom][k]-positions[jatom][k];
+
       pbc(cell,distance,distance_pbc);
 // if the interparticle distance is larger than the cutoff, skip
-      double d2=0; for(int k=0;k<3;k++) d2+=distance_pbc[k]*distance_pbc[k];
+      double d2=0;
+      for(int k=0;k<3;k++)
+        d2+=distance_pbc[k]*distance_pbc[k];
+
       if(d2>listcutoff2)continue;
       list[iatom].push_back(jatom);
     }
   }
 }
 
-void compute_forces(const int natoms,const vector<Vector>& positions,const double cell[3],
-                    double forcecutoff,const vector<vector<int> >& list,vector<Vector>& forces,double & engconf)
+void compute_forces(const int natoms,const vector<Vector>& positions,
+                    const double cell[3],double forcecutoff,
+                    const vector<vector<int> >& list,vector<Vector>& forces,
+                    double & engconf, MPI_Comm comm)
 {
   Vector distance;        // distance of the two atoms
   Vector distance_pbc;    // minimum-image distance of the two atoms
@@ -234,29 +278,55 @@ void compute_forces(const int natoms,const vector<Vector>& positions,const doubl
   Vector f;               // force
   double engcorrection;   // energy necessary shift the potential avoiding discontinuities
 
+  int rank; // id of the processor
+  int size; // number of processors
+
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
+
+
   forcecutoff2=forcecutoff*forcecutoff;
   engconf=0.0;
-  for(int i=0;i<natoms;i++)for(int k=0;k<3;k++) forces[i][k]=0.0;
+
+  for(int i=0;i<natoms;i++)
+    for(int k=0;k<3;k++)
+      forces[i][k]=0.0;
+
   engcorrection=4.0*(1.0/pow(forcecutoff2,6.0)-1.0/pow(forcecutoff2,3));
+
   for(int iatom=0;iatom<natoms-1;iatom++){
     for(int jlist=0;jlist<list[iatom].size();jlist++){
+
       int jatom=list[iatom][jlist];
-      for(int k=0;k<3;k++) distance[k]=positions[iatom][k]-positions[jatom][k];
+
+      for(int k=0;k<3;k++)
+        distance[k]=positions[iatom][k]-positions[jatom][k];
+
       pbc(cell,distance,distance_pbc);
-      distance_pbc2=0.0; for(int k=0;k<3;k++) distance_pbc2+=distance_pbc[k]*distance_pbc[k];
+      distance_pbc2=0.0;
+
+      for(int k=0;k<3;k++)
+        distance_pbc2+=distance_pbc[k]*distance_pbc[k];
+
+
 // if the interparticle distance is larger than the cutoff, skip
-      if(distance_pbc2>forcecutoff2) continue;
+      if(distance_pbc2>forcecutoff2)
+        continue; // don't do the following, but do the next step of the loop
+
       double distance_pbc6=distance_pbc2*distance_pbc2*distance_pbc2;
       double distance_pbc8=distance_pbc6*distance_pbc2;
       double distance_pbc12=distance_pbc6*distance_pbc6;
       double distance_pbc14=distance_pbc12*distance_pbc2;
       engconf+=4.0*(1.0/distance_pbc12 - 1.0/distance_pbc6) - engcorrection;
+
       for(int k=0;k<3;k++) f[k]=2.0*distance_pbc[k]*4.0*(6.0/distance_pbc14-3.0/distance_pbc8);
 // same force on the two atoms, with opposite sign:
       for(int k=0;k<3;k++) forces[iatom][k]+=f[k];
       for(int k=0;k<3;k++) forces[jatom][k]-=f[k];
     }
   }
+  MPI_Allreduce(MPI_IN_PLACE, &(forces[0][0]), 3 * natoms, MPI_DOUBLE, MPI_SUM, comm);
+  MPI_Allreduce(MPI_IN_PLACE, &engconf, 1, MPI_DOUBLE, MPI_SUM, comm);
 }
 
 void compute_engkin(const int natoms,const vector<double>& masses,const vector<Vector>& velocities,double & engkin)
@@ -390,6 +460,9 @@ int main(FILE*in,FILE*out){
 
   Random random;                 // random numbers stream
 
+  int rank;
+  MPI_Comm_rank(this -> MyComm, &rank);
+
   read_input(in,temperature,tstep,friction,forcecutoff,
              listcutoff,nstep,nconfig,nstat,
              wrapatoms,inputfile,outputfile,trajfile,statfile,
@@ -398,24 +471,25 @@ int main(FILE*in,FILE*out){
 // number of atoms is read from file inputfile
   read_natoms(inputfile,natoms);
 
+  if(MyID == 0){
 // write the parameters in output so they can be checked
-  fprintf(stdout,"%s %s\n","Starting configuration           :",inputfile.c_str());
-  fprintf(stdout,"%s %s\n","Final configuration              :",outputfile.c_str());
-  fprintf(stdout,"%s %d\n","Number of atoms                  :",natoms);
-  fprintf(stdout,"%s %f\n","Temperature                      :",temperature);
-  fprintf(stdout,"%s %f\n","Time step                        :",tstep);
-  fprintf(stdout,"%s %f\n","Friction                         :",friction);
-  fprintf(stdout,"%s %f\n","Cutoff for forces                :",forcecutoff);
-  fprintf(stdout,"%s %f\n","Cutoff for neighbour list        :",listcutoff);
-  fprintf(stdout,"%s %d\n","Number of steps                  :",nstep);
-  fprintf(stdout,"%s %d\n","Stride for trajectory            :",nconfig);
-  fprintf(stdout,"%s %s\n","Trajectory file                  :",trajfile.c_str());
-  fprintf(stdout,"%s %d\n","Stride for statistics            :",nstat);
-  fprintf(stdout,"%s %s\n","Statistics file                  :",statfile.c_str());
-  fprintf(stdout,"%s %d\n","Max average number of neighbours :",maxneighbour);
-  fprintf(stdout,"%s %d\n","Seed                             :",idum);
-  fprintf(stdout,"%s %s\n","Are atoms wrapped on output?     :",(wrapatoms?"T":"F"));
-
+    fprintf(stdout,"%s %s\n","Starting configuration           :",inputfile.c_str());
+    fprintf(stdout,"%s %s\n","Final configuration              :",outputfile.c_str());
+    fprintf(stdout,"%s %d\n","Number of atoms                  :",natoms);
+    fprintf(stdout,"%s %f\n","Temperature                      :",temperature);
+    fprintf(stdout,"%s %f\n","Time step                        :",tstep);
+    fprintf(stdout,"%s %f\n","Friction                         :",friction);
+    fprintf(stdout,"%s %f\n","Cutoff for forces                :",forcecutoff);
+    fprintf(stdout,"%s %f\n","Cutoff for neighbour list        :",listcutoff);
+    fprintf(stdout,"%s %d\n","Number of steps                  :",nstep);
+    fprintf(stdout,"%s %d\n","Stride for trajectory            :",nconfig);
+    fprintf(stdout,"%s %s\n","Trajectory file                  :",trajfile.c_str());
+    fprintf(stdout,"%s %d\n","Stride for statistics            :",nstat);
+    fprintf(stdout,"%s %s\n","Statistics file                  :",statfile.c_str());
+    fprintf(stdout,"%s %d\n","Max average number of neighbours :",maxneighbour);
+    fprintf(stdout,"%s %d\n","Seed                             :",idum);
+    fprintf(stdout,"%s %s\n","Are atoms wrapped on output?     :",(wrapatoms?"T":"F"));
+  }
 // Setting the seed
   random.setSeed(idum);
 
@@ -444,11 +518,16 @@ int main(FILE*in,FILE*out){
 
   int list_size=0;
   for(int i=0;i<list.size();i++) list_size+=list[i].size();
-  fprintf(stdout,"List size: %d\n",list_size);
-  for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
+
+  if(MyID == 0)
+    fprintf(stdout,"List size: %d\n",list_size);
+
+  for(int iatom=0;iatom<natoms;++iatom)
+    for(int k=0;k<3;++k)
+      positions0[iatom][k]=positions[iatom][k];
 
 // forces are computed before starting md
-  compute_forces(natoms,positions,cell,forcecutoff,list,forces,engconf);
+  compute_forces(natoms,positions,cell,forcecutoff,list,forces,engconf,this -> MyComm);
 
 // here is the main md loop
 // Langevin thermostat is applied before and after a velocity-Verlet integrator
@@ -475,13 +554,18 @@ int main(FILE*in,FILE*out){
     if(recompute_list){
       compute_list(natoms,positions,cell,listcutoff,list);
       for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
+
+      if(MyID == 0)
       fprintf(stdout,"Neighbour list recomputed at step %d\n",istep);
+
       int list_size=0;
       for(int i=0;i<list.size();i++) list_size+=list[i].size();
+
+      if(MyID == 0)
       fprintf(stdout,"List size: %d\n",list_size);
     }
 
-    compute_forces(natoms,positions,cell,forcecutoff,list,forces,engconf);
+    compute_forces(natoms,positions,cell,forcecutoff,list,forces,engconf, this -> MyComm);
 
     for(int iatom=0;iatom<natoms;iatom++) for(int k=0;k<3;k++)
       velocities[iatom][k]+=forces[iatom][k]*0.5*tstep/masses[iatom];
@@ -509,12 +593,23 @@ int main(FILE*in,FILE*out){
 };
 
 int main(int argc,char*argv[]){
-  SimpleMD smd;
   FILE* in=stdin;
+
+  int rank; // id of the processor
+  int size; // number of processors
+
+  MPI_Init(&argc, &argv);
+  SimpleMD smd(MPI_COMM_WORLD);
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+
   if(argc>1) in=fopen(argv[1],"r");
   int r=smd.main(in,stdout);
   if(argc>1) fclose(in);
-  return r;
+
+  MPI_Finalize();
+
+  return 0;
  }
-
-

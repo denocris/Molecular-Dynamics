@@ -3,6 +3,7 @@
 # generate a 3x3x3 lattice, with unitary-cell side equal to 1.5
 # the default side corresponds to the triple point
 
+export LANG=C
 awk -v n=$1 -v a0=$2 'BEGIN{
   if(a0=="") a0=1.6796
   if(n=="") n=1
@@ -20,4 +21,3 @@ awk -v n=$1 -v a0=$2 'BEGIN{
   }
   }
 }'
-

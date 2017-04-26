@@ -11,7 +11,7 @@ friction 1.0
 # cutoff for forces
 forcecutoff 2.5
 # cutoff for neighbor lists
-listcutoff  3.0
+listcutoff  1e6
 # total number of steps
 nstep 2000
 # stride for writing trajectory
