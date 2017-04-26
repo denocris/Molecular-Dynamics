@@ -11,9 +11,9 @@ friction 1.0
 # cutoff for forces
 forcecutoff 2.5
 # cutoff for neighbor lists
-listcutoff  1e6
+listcutoff  3.0
 # total number of steps
-nstep 2000
+nstep 1000
 # stride for writing trajectory
 nconfig 10 trajectory.xyz
 # stride for writing energy file
