@@ -11,7 +11,7 @@ rm -f timing.dat
 
 for nprocs in 1 2 4 8 16;
 do
-    /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in >> timing.dat
+    /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in 2>> timing.dat
 done
 
 cat timing.dat | grep real | awk '{print $2}' > timing_plot.dat
