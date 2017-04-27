@@ -216,7 +216,26 @@ void check_list(const int natoms,const vector<Vector>& positions,const vector<Ve
   }
 }
 
+void compute_list(const int natoms,const vector<Vector>& positions,const double cell[3],const double listcutoff,
+                  vector<vector<int> >& list){
+  Vector distance;     // distance of the two atoms
+  Vector distance_pbc; // minimum-image distance of the two atoms
+  double listcutoff2;  // squared list cutoff
+  listcutoff2=listcutoff*listcutoff;
+  list.assign(natoms,vector<int>());
+  for(int iatom=0;iatom<natoms-1;iatom++){
+    for(int jatom=iatom+1;jatom<natoms;jatom++){
+      for(int k=0;k<3;k++) distance[k]=positions[iatom][k]-positions[jatom][k];
+      pbc(cell,distance,distance_pbc);
+// if the interparticle distance is larger than the cutoff, skip
+      double d2=0; for(int k=0;k<3;k++) d2+=distance_pbc[k]*distance_pbc[k];
+      if(d2>listcutoff2)continue;
+      list[iatom].push_back(jatom);
+    }
+  }
+}
 
+/*
 void compute_list(const int natoms,const vector<Vector>& positions,const double cell[3],const double listcutoff,
                   vector<vector<int> >& list, MPI_Comm comm){
   Vector distance;     // distance of the two atoms
@@ -264,7 +283,7 @@ void compute_list(const int natoms,const vector<Vector>& positions,const double 
     }
   }
 }
-
+*/
 void compute_forces(const int natoms,const vector<Vector>& positions,const double cell[3],
                     double forcecutoff,const vector<vector<int> >& list,vector<Vector>& forces,double & engconf, MPI_Comm comm)
 {
