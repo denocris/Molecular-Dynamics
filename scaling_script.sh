@@ -11,7 +11,9 @@ rm -f ../data/timing_A_clean.dat
 
 for nprocs in 1 2 4 8 16 20;
 do
-    /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in >> ../data/timing_A.dat
+    /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in 2>> ../data/timing_A.dat
 done
 
-cat ../data/timing_A.dat | grep real | awk '{print $2}' > ../data/timing_A_clean.dat
+cd ../data
+
+cat timing_A.dat | grep real | awk '{print $2}' > timing_A_clean.dat
