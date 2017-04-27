@@ -77,8 +77,8 @@ read_input(FILE*   fp,
 
   string line;
 
-  int MyID;
-  MPI_Comm_rank( this->MyComm, &MyID);
+  int rank;
+  MPI_Comm_rank( this->MyComm, &rank);
 
   line.resize(256);
   char buffer[256];
@@ -111,14 +111,14 @@ read_input(FILE*   fp,
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nconfig,buffer1);
       trajfile=buffer1;
-      if(MyID > 0)
+      if(rank > 0)
 	trajfile = "/dev/null";
     }
     else if(keyword=="nstat")
     {
       sscanf(line.c_str(),"%s %d %s",buffer,&nstat,buffer1);
       statfile=buffer1;
-      if(MyID > 0)
+      if(rank > 0)
 	statfile = "/dev/null";
     }
     else if(keyword=="wrapatoms")
@@ -222,10 +222,10 @@ void compute_list(const int natoms,const vector<Vector>& positions,const double 
   Vector distance;     // distance of the two atoms
   Vector distance_pbc; // minimum-image distance of the two atoms
   double listcutoff2;  // squared list cutoff
-  int MyID, NPES;
+  int rank, size;
 
-  MPI_Comm_size(comm, &NPES);
-  MPI_Comm_rank(comm, &MyID);
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
 
   listcutoff2=listcutoff*listcutoff;
   list.assign(natoms,vector<int>());
@@ -233,16 +233,16 @@ void compute_list(const int natoms,const vector<Vector>& positions,const double 
   for(int iatom=0;iatom<natoms-1;iatom++){
 
     int real_offset = iatom + 1;
-    int jlist_partial = (natoms - (iatom + 1)) / NPES;
-    int rest = (natoms - (iatom + 1)) % NPES;
+    int jlist_partial = (natoms - (iatom + 1)) / size;
+    int rest = (natoms - (iatom + 1)) % size;
     int offset = 0;
 
-    if(rest != 0 and MyID < rest)
+    if(rest != 0 and rank < rest)
       jlist_partial++;
     else
       offset = rest;
 
-    int start = jlist_partial * MyID + offset + real_offset;
+    int start = jlist_partial * rank + offset + real_offset;
     int end = start + jlist_partial;
 
     for(int jatom = start; jatom < end; jatom++){
@@ -274,10 +274,10 @@ void compute_forces(const int natoms,const vector<Vector>& positions,const doubl
   double forcecutoff2;    // squared force cutoff
   Vector f;               // force
   double engcorrection;   // energy necessary shift the potential avoiding discontinuities
-  int MyID, NPES;
+  int rank, size;
 
-  MPI_Comm_size(comm, &NPES);
-  MPI_Comm_rank(comm, &MyID);
+  MPI_Comm_size(comm, &size);
+  MPI_Comm_rank(comm, &rank);
 
   forcecutoff2=forcecutoff*forcecutoff;
   engconf=0.0;
@@ -459,8 +459,8 @@ public:
 
   Random random;                 // random numbers stream
 
-  int MyID;
-  MPI_Comm_rank(this -> MyComm, &MyID);
+  int rank;
+  MPI_Comm_rank(this -> MyComm, &rank);
 
   read_input(in,temperature,tstep,friction,forcecutoff,
              listcutoff,nstep,nconfig,nstat,
@@ -470,7 +470,7 @@ public:
 // number of atoms is read from file inputfile
   read_natoms(inputfile,natoms);
 
-  if(MyID == 0){
+  if(rank == 0){
     // write the parameters in output so they can be checked
     fprintf(stdout,"%s %s\n","Starting configuration           :",inputfile.c_str());
     fprintf(stdout,"%s %s\n","Final configuration              :",outputfile.c_str());
@@ -518,7 +518,7 @@ public:
   int list_size=0;
   for(int i=0;i<list.size();i++) list_size+=list[i].size();
 
-  if(MyID == 0)
+  if(rank == 0)
     fprintf(stdout,"List size: %d\n",list_size);
 
   for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
@@ -552,12 +552,12 @@ public:
       compute_list(natoms,positions,cell,listcutoff,list, this->MyComm);
       for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
 
-      if(MyID == 0)
+      if(rank == 0)
 	fprintf(stdout,"Neighbour list recomputed at step %d\n",istep);
       int list_size=0;
       for(int i=0;i<list.size();i++) list_size+=list[i].size();
 
-      if(MyID == 0)
+      if(rank == 0)
 	fprintf(stdout,"List size: %d\n",list_size);
     }
 
@@ -592,14 +592,14 @@ public:
 int main(int argc,char*argv[]){
   FILE* in=stdin;
 
-  int MyID, NPES;
+  int rank, size;
 
   MPI_Init(&argc, &argv);
   SimpleMD smd(MPI_COMM_WORLD);
 
-  MPI_Comm_rank(MPI_COMM_WORLD, &MyID);
-  MPI_Comm_size(MPI_COMM_WORLD, &NPES);
-  // cout << "MyID = " << MyID << " of " << NPES << endl;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  // cout << "rank = " << rank << " of " << size << endl;
 
   if(argc>1) in=fopen(argv[1],"r");
   int r=smd.main(in,stdout);
@@ -607,5 +607,5 @@ int main(int argc,char*argv[]){
 
   MPI_Finalize();
 
-  return 0;
+  return r;
 }
