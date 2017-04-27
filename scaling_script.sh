@@ -14,4 +14,4 @@ do
     /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in >> ../data/timing_A.dat
 done
 
-cat ../data/timing_A.dat | grep real | awk '{print $2}' > timing_A_clean.dat
+cat ../data/timing_A.dat | grep real | awk '{print $2}' > ../data/timing_A_clean.dat
