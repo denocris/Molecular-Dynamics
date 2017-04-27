@@ -5,13 +5,13 @@
 
 module load openmpi/1.8.3/gnu/4.9.2
 
-cd P2.10_seed/
+cd P2.10_seed/input
 rm -f timing.dat
-rm -f timing_plot.dat
+#rm -f timing_plot.dat
 
-for nprocs in 1 2 4 8 16 20;
+for nprocs in 1 2 4 8 16;
 do
-    /usr/bin/time -p mpirun -np $nprocs src/simplemd.x in > timing.dat
+    /usr/bin/time -p mpirun -np $nprocs ../src/simplemd.x in > timing.dat
 done
 
-#cat timing.dat | grep real | awk '{print $2}' > timing_plot.dat
+cat timing.dat | grep real | awk '{print $2}' > timing_plot.dat
