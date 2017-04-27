@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -l walltime=00:15:00
+#PBS -l walltime=00:35:00
 #PBS -l nodes=1:ppn=20
 
 module load openmpi/1.8.3/gnu/4.9.2
