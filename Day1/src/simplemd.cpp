@@ -533,8 +533,8 @@ public:
   randomize_velocities(natoms,temperature,masses,velocities,random);
 
 // neighbour list are computed, and reference positions are saved
-  compute_list(natoms,positions,cell,listcutoff,list);
-  //compute_list(natoms,positions,cell,listcutoff,list, this->MyComm);
+  //compute_list(natoms,positions,cell,listcutoff,list);
+  compute_list(natoms,positions,cell,listcutoff,list, this->MyComm);
 
   int list_size=0;
   for(int i=0;i<list.size();i++) list_size+=list[i].size();
@@ -570,8 +570,8 @@ public:
 // a check is performed to decide whether to recalculate the neighbour list
     check_list(natoms,positions,positions0,listcutoff,forcecutoff,recompute_list);
     if(recompute_list){
-      //compute_list(natoms,positions,cell,listcutoff,list, this->MyComm);
-      compute_list(natoms,positions,cell,listcutoff,list);
+      compute_list(natoms,positions,cell,listcutoff,list, this->MyComm);
+      //compute_list(natoms,positions,cell,listcutoff,list);
       for(int iatom=0;iatom<natoms;++iatom) for(int k=0;k<3;++k) positions0[iatom][k]=positions[iatom][k];
 
       if(rank == 0)

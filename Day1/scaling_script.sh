@@ -5,7 +5,7 @@
 
 module load openmpi/1.8.3/gnu/4.9.2
 
-cd P2.10_seed/input
+cd P2.10_seed/Day1/input
 rm -f ../data/timing_A.dat
 rm -f ../data/timing_A_clean.dat
 
