@@ -1,4 +1,4 @@
-### Day2 Exercise
+### Day1 Exercise
 
 I apologize for the short report!
 
