@@ -1,0 +1,75 @@
+namefile=in #MyInputFile
+output=output
+energy=energies
+traj=trajectory
+dot_dat=.dat
+dot_xyz=.xyz
+
+tmin=1.
+tmax=1.5
+
+# starting structure:
+inputfile=inputfile\ crystal.xyz
+
+# timestep
+tstep=tstep\ 0.005
+
+# friction coefficient (Langevin thermostat)
+friction=friction\ 0.
+
+# cutoff for forces
+forcecutoff=forcecutoff\ 2
+
+# cutoff for neighbor lists
+listcutoff=listcutoff\ 5
+
+# total number of steps
+nstep=nstep\ 1000
+
+# nconfig: stride for writing trajectory
+# nstat: stride for writing energy file
+
+ex_st=exchangestride\ 10
+
+# $1 (input value) must to be equal to the number of files that you want to generate
+END=$1
+END=$(($END-1))
+
+if [ -f $1  ]
+then
+    echo ""
+    echo "  Syntax:"
+    echo ""
+    echo -e "\t $0 N"
+    echo ""
+    echo "  where N = rank + 1"
+    echo ""
+else
+
+for i in $(seq 0 $(($END)));
+do
+	# calculate the temperature
+	t=$(echo "($tmin*e($i/$END*l($tmax/$tmin)))" | bc -l)
+
+	temperature=temperature\ $t
+	outputfile=outputfile\ $output$i$dot_xyz
+	nconfig=nconfig\ 10\ $traj$i$dot_xyz
+	nstat=nstat\ 10\ $energy$i$dot_dat
+	idum=idum\ $i
+
+	echo "writing $namefile$i input file; $tdiff"
+	echo $inputfile > $namefile$i;
+	echo $outputfile >> $namefile$i;
+	echo $temperature >> $namefile$i;
+	echo $tstep >> $namefile$i;
+	echo $friction >> $namefile$i
+	echo $forcecutoff >> $namefile$i
+	echo $listcutoff >> $namefile$i
+	echo $nstep >> $namefile$i
+	echo $nconfig >> $namefile$i
+	echo $nstat >> $namefile$i
+	echo $idum >> $namefile$i
+	echo $ex_st >> $namefile$i
+done
+
+fi

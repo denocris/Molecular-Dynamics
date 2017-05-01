@@ -1,0 +1,12 @@
+inputfile crystal.xyz
+outputfile output0.xyz
+temperature 1.00000000000000000000
+tstep 0.005
+friction 0.
+forcecutoff 2
+listcutoff 5
+nstep 1000
+nconfig 10 trajectory0.xyz
+nstat 10 energies0.dat
+idum 0
+exchangestride 10

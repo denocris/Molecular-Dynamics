@@ -1,0 +1,45 @@
+# run a parallel tempering simulation
+
+nreplicas=4
+np=4 # num processor
+
+temp[0]=0.20
+temp[1]=0.22
+temp[2]=0.24
+temp[3]=0.26
+
+./lattice 5  > crystal.xyz
+
+rm in-*
+
+for((replicas=0;replicas<nreplicas;replicas++))
+do
+
+cat > in-$replicas << EOF
+# starting structure:
+inputfile crystal.xyz
+# final structure:
+outputfile output-$replicas.xyz
+# temperature (Langevin thermostat)
+temperature ${temp[replicas]}
+# timestep
+tstep 0.005
+# friction coefficient (Langevin thermostat)
+friction 0.0
+# cutoff for forces
+forcecutoff 2.5
+# cutoff for neighbor lists
+listcutoff  3.0
+# total number of steps
+nstep 1000
+# stride for writing trajectory
+nconfig 10 trajectory-$replicas.xyz
+# stride for writing energy file
+nstat   1 energies-$replicas.dat
+# stride for replica exchange
+exchangestride 50
+# different idum for each replica
+idum $replicas
+EOF
+done
+mpirun -np $np ../src/simplemd.x  in-*
